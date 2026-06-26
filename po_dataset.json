@@ -1,0 +1,50 @@
+[
+  {
+    "po_number": "PO-1001",
+    "vendor": "Apex Office Supplies",
+    "approved_amount": 18500,
+    "items": "50x A4 paper reams, 20x toner cartridges"
+  },
+  {
+    "po_number": "PO-1002",
+    "vendor": "Silverline Logistics",
+    "approved_amount": 42000,
+    "items": "Freight & transport services, Q2"
+  },
+  {
+    "po_number": "PO-1003",
+    "vendor": "Brightway Electricals",
+    "approved_amount": 76200,
+    "items": "LED lighting fixtures (60 units)"
+  },
+  {
+    "po_number": "PO-1004",
+    "vendor": "Apex Office Supplies",
+    "approved_amount": 9000,
+    "items": "15x ergonomic chairs"
+  },
+  {
+    "po_number": "PO-1005",
+    "vendor": "Meridian IT Solutions",
+    "approved_amount": 125000,
+    "items": "Annual software license renewal"
+  },
+  {
+    "po_number": "PO-1006",
+    "vendor": "Brightway Electricals",
+    "approved_amount": 31500,
+    "items": "Cabling & installation services"
+  },
+  {
+    "po_number": "PO-1007",
+    "vendor": "Coastal Packaging Co.",
+    "approved_amount": 54000,
+    "items": "Custom packaging boxes (10,000 units)"
+  },
+  {
+    "po_number": "PO-1008",
+    "vendor": "Apex Office Supplies",
+    "approved_amount": 22000,
+    "items": "Mixed stationery order"
+  }
+]

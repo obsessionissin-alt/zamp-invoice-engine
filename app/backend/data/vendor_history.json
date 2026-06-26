@@ -1,0 +1,27 @@
+{
+  "Apex Office Supplies": {
+    "last_known_bank_account": "XXXX-XXXX-4521",
+    "last_known_ifsc": "HDFC0001234",
+    "processed_invoices": ["INV-2201", "INV-2198"]
+  },
+  "Silverline Logistics": {
+    "last_known_bank_account": "XXXX-XXXX-7890",
+    "last_known_ifsc": "ICIC0005678",
+    "processed_invoices": ["INV-5510"]
+  },
+  "Brightway Electricals": {
+    "last_known_bank_account": "XXXX-XXXX-3344",
+    "last_known_ifsc": "SBIN0009988",
+    "processed_invoices": ["INV-7701"]
+  },
+  "Meridian IT Solutions": {
+    "last_known_bank_account": "XXXX-XXXX-1122",
+    "last_known_ifsc": "AXIS0004433",
+    "processed_invoices": []
+  },
+  "Coastal Packaging Co.": {
+    "last_known_bank_account": "XXXX-XXXX-6655",
+    "last_known_ifsc": "KOTAK0007722",
+    "processed_invoices": []
+  }
+}

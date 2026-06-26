@@ -1,0 +1,21 @@
+# Secrets — never commit
+.env
+
+# Runtime data — reviewer generates their own on first run
+app/backend/runs_history.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.cursor/
+.vscode/

@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Zamp — Invoice Processing Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #ffffff;
+    --surface:   #ffffff;
+    --surface-hover: #f0f5ff;
+    --border:    #e2e8f0;
+    --text:      #000000;
+    --muted:     #666666;
+    --accent:    #005eff; /* Zamp Blue */
+    
+    --approve-text: #166534;
+    --approve-bg:   #dcfce7;
+    --flag-text:    #92400e;
+    --flag-bg:      #fef3c7;
+    --escalate-text:#991b1b;
+    --escalate-bg:  #fee2e2;
+    
+    --radius:    12px;
+    --radius-pill: 9999px;
+  }
+
+  body {
+    background-color: var(--bg);
+    /* Graphic tech grid background in subtle blue */
+    background-image: 
+      linear-gradient(rgba(0, 94, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 94, 255, 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: center top;
+    color: var(--text);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Glitch Effect ── */
+  .glitch {
+    position: relative;
+    display: inline-block;
+    color: var(--text);
+  }
+  .glitch::before, .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    opacity: 0;
+  }
+  .glitch:hover::before {
+    left: 2px;
+    text-shadow: -2px 0 #005eff;
+    animation: glitch-anim-1 0.2s infinite linear alternate-reverse;
+    opacity: 1;
+  }
+  .glitch:hover::after {
+    left: -2px;
+    text-shadow: 2px 0 #ff00ea;
+    animation: glitch-anim-2 0.3s infinite linear alternate-reverse;
+    opacity: 1;
+  }
+  @keyframes glitch-anim-1 {
+    0% { clip-path: inset(20% 0 80% 0); }
+    50% { clip-path: inset(60% 0 10% 0); }
+    100% { clip-path: inset(40% 0 50% 0); }
+  }
+  @keyframes glitch-anim-2 {
+    0% { clip-path: inset(10% 0 60% 0); }
+    50% { clip-path: inset(30% 0 20% 0); }
+    100% { clip-path: inset(70% 0 10% 0); }
+  }
+
+  /* ── Layout ── */
+  header {
+    padding: 20px 32px;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header .logo { 
+    font-size: 24px; 
+    font-weight: 700; 
+    letter-spacing: -0.5px; 
+    color: var(--text); 
+    cursor: default;
+  }
+  header .logo span { color: var(--accent); }
+  header .tagline { color: var(--muted); font-size: 13px; margin-left: auto; font-weight: 500; }
+  .header-badge {
+    color: var(--accent);
+    font-size: 12px;
+    background: rgba(0, 94, 255, 0.08);
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid rgba(0, 94, 255, 0.2);
+    font-weight: 600;
+    font-family: 'Geist Mono', monospace;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
+    padding: 24px 32px 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+  }
+  .tab-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 14px; font-weight: 500;
+    padding: 8px 16px; border-radius: 8px 8px 0 0;
+    border-bottom: 2px solid transparent;
+    transition: all .2s ease;
+    font-family: inherit;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); background: rgba(0, 94, 255, 0.04); }
+
+  .tab-panel { display: none; padding: 32px; max-width: 1000px; margin: 0 auto; }
+  .tab-panel.active { display: block; }
+
+  /* ── Upload zone ── */
+  .upload-zone {
+    border: 1px dashed var(--accent);
+    border-radius: var(--radius);
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s ease;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4px 20px rgba(0, 94, 255, 0.03);
+  }
+  .upload-zone.drag-over { border-color: var(--accent); background: rgba(0, 94, 255, 0.04); border-width: 2px; }
+  .upload-zone svg { color: var(--accent); margin-bottom: 16px; transition: transform .2s; }
+  .upload-zone:hover svg { transform: translateY(-4px); }
+  .upload-zone p { color: var(--muted); font-size: 15px; }
+  .upload-zone strong { color: var(--accent); font-weight: 600; }
+  #file-input { display: none; }
+
+  .file-list {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .file-chip {
+    background: #ffffff;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-pill);
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0, 94, 255, 0.05);
+  }
+  .file-chip svg { color: var(--accent); }
+  .file-chip button {
+    background: none; border: none; cursor: pointer; color: var(--accent);
+    font-size: 16px; line-height: 1; padding: 0; display: flex; align-items: center;
+    transition: color .2s;
+  }
+  .file-chip button:hover { color: var(--escalate-text); }
+
+  .btn-primary {
+    margin-top: 24px;
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-pill);
+    padding: 12px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all .2s cubic-bezier(0, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 94, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    background: linear-gradient(transparent, rgba(255,255,255,0.2), transparent);
+    transform: rotate(45deg) translateY(-100%);
+    transition: transform 0.5s ease;
+  }
+  .btn-primary:hover::after { transform: rotate(45deg) translateY(100%); }
+  .btn-primary:hover { 
+    background: #004bcf; 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 16px rgba(0, 94, 255, 0.3); 
+  }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ── Live run cards ── */
+  #runs-container { margin-top: 32px; display: flex; flex-direction: column; gap: 24px; }
+
+  .run-card {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(8px);
+  }
+  .run-card-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    background: rgba(0, 94, 255, 0.02);
+  }
+  .run-card-header .filename { flex: 1; font-size: 14px; font-family: 'Geist Mono', monospace; color: var(--accent); }
+  .run-card-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* ── Stage rows ── */
+  .stage-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .stage-icon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .stage-icon.running { 
+    background: #ffffff; 
+    color: var(--accent); 
+    border-color: var(--accent); 
+    box-shadow: 0 0 0 3px rgba(0, 94, 255, 0.1);
+    animation: glitch-pulse 1.5s infinite; 
+  }
+  @keyframes glitch-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0, 94, 255, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(0, 94, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 94, 255, 0); }
+  }
+  .stage-icon.done    { background: var(--approve-bg); color: var(--approve-text); border-color: #bbf7d0; }
+  .stage-icon.warn    { background: var(--flag-bg); color: var(--flag-text); border-color: #fde68a; }
+  .stage-icon.escalate{ background: var(--escalate-bg); color: var(--escalate-text); border-color: #fecaca; }
+  .stage-icon.skipped { background: var(--surface); color: var(--muted); border-color: var(--border); opacity: 0.7; }
+
+  .stage-content { flex: 1; padding-top: 4px; }
+  .stage-label { font-size: 14px; font-weight: 500; color: var(--text); }
+  .stage-detail { margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+  /* Extracted fields table */
+  .fields-table {
+    margin-top: 12px;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .fields-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .fields-table tr:last-child td { border-bottom: none; }
+  .fields-table td:first-child { color: var(--muted); width: 160px; font-weight: 500; }
+  .fields-table td:last-child { color: var(--accent); font-family: 'Geist Mono', monospace; font-weight: 500; }
+
+  /* Line items mini-table */
+  .line-items-table {
+    margin-top: 12px;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #ffffff;
+  }
+  .line-items-table th {
+    text-align: left; color: var(--muted); font-weight: 500;
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    background: rgba(0, 94, 255, 0.02);
+  }
+  .line-items-table td { padding: 8px 12px; color: var(--text); border-bottom: 1px solid var(--border); }
+  .line-items-table tr:last-child td { border-bottom: none; }
+  .line-items-table td:last-child { text-align: right; font-family: 'Geist Mono', monospace; font-weight: 500; color: var(--accent); }
+
+  /* Decision badge */
+  .decision-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: var(--radius-pill);
+    font-size: 13px; font-weight: 600; letter-spacing: .3px;
+    margin-top: 8px;
+    border: 1px solid transparent;
+  }
+  .decision-badge.APPROVE  { background: var(--approve-bg); color: var(--approve-text); border-color: #bbf7d0; }
+  .decision-badge.FLAG     { background: var(--flag-bg); color: var(--flag-text); border-color: #fde68a; }
+  .decision-badge.ESCALATE { background: var(--escalate-bg); color: var(--escalate-text); border-color: #fecaca; }
+
+  .reasoning-text {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: rgba(0, 94, 255, 0.02);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  .model-tag {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--accent);
+    font-family: 'Geist Mono', monospace;
+    opacity: 0.8;
+  }
+
+  /* ── Dashboard ── */
+  .dash-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .dash-header h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+  .btn-refresh {
+    background: #ffffff; border: 1px solid var(--accent);
+    color: var(--accent); border-radius: var(--radius-pill); padding: 8px 16px;
+    cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit;
+    transition: all .2s ease;
+    box-shadow: 0 2px 4px rgba(0, 94, 255, 0.05);
+  }
+  .btn-refresh:hover { background: var(--accent); color: #ffffff; }
+
+  .history-table {
+    width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+  }
+  .history-table th {
+    text-align: left; color: var(--muted); font-weight: 500;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    background: rgba(0, 94, 255, 0.02);
+  }
+  .history-table td {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .history-table tr.data-row { cursor: pointer; transition: background .15s; }
+  .history-table tr.data-row:hover td { background: rgba(0, 94, 255, 0.02); }
+  
+  .history-table td:nth-child(3), .history-table td:nth-child(4) {
+    font-family: 'Geist Mono', monospace;
+    color: var(--accent);
+  }
+
+  .badge {
+    display: inline-block; padding: 4px 12px; border-radius: var(--radius-pill);
+    font-size: 12px; font-weight: 600; letter-spacing: .3px;
+    border: 1px solid transparent;
+  }
+  .badge-APPROVE  { background: var(--approve-bg); color: var(--approve-text); border-color: #bbf7d0; }
+  .badge-FLAG     { background: var(--flag-bg); color: var(--flag-text); border-color: #fde68a; }
+  .badge-ESCALATE { background: var(--escalate-bg); color: var(--escalate-text); border-color: #fecaca; }
+
+  .detail-row { display: none; }
+  .detail-row.open { display: table-row; }
+  .detail-cell {
+    padding: 24px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid var(--border);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.02);
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  .detail-section h4 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--accent); margin-bottom: 12px;
+  }
+  .detail-section p { font-size: 13px; color: var(--text); line-height: 1.6; }
+
+  .empty-state {
+    text-align: center; padding: 80px 20px; color: var(--muted);
+    background: rgba(255, 255, 255, 0.8); border-radius: var(--radius); border: 1px dashed var(--border);
+    backdrop-filter: blur(8px);
+  }
+  .empty-state svg { color: var(--accent); margin-bottom: 16px; opacity: 0.5; }
+  .empty-state p { font-size: 15px; }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo glitch" data-text="zamp.">zamp<span>.</span></div>
+  <span class="header-badge">Invoice Processing Engine</span>
+  <span class="tagline">AP Automation · Case Study PS-1</span>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('upload')">Process Invoice</button>
+  <button class="tab-btn" onclick="switchTab('history')">History</button>
+</div>
+
+<!-- ══════════════════ UPLOAD TAB ══════════════════ -->
+<div id="tab-upload" class="tab-panel active">
+  <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/>
+      <polyline points="9 15 12 12 15 15"/>
+    </svg>
+    <p><strong>Drop invoice PDFs here</strong> or click to browse</p>
+    <p style="margin-top:8px;font-size:13px">Supports multiple files · PDF only</p>
+  </div>
+  <input type="file" id="file-input" accept=".pdf" multiple />
+
+  <div class="file-list" id="file-list"></div>
+
+  <button class="btn-primary" id="process-btn" disabled onclick="processFiles()">
+    Process Invoices
+  </button>
+
+  <div id="runs-container"></div>
+</div>
+
+<!-- ══════════════════ HISTORY TAB ══════════════════ -->
+<div id="tab-history" class="tab-panel">
+  <div class="dash-header">
+    <h2>Processed Invoices</h2>
+    <button class="btn-refresh" onclick="loadHistory()">↻ Refresh</button>
+  </div>
+  <div id="history-container">
+    <div class="empty-state">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/>
+        <line x1="9" y1="21" x2="9" y2="9"/>
+      </svg>
+      <p>No invoices processed yet.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// Tab switching
+// ─────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['upload','history'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'history') loadHistory();
+}
+
+// ─────────────────────────────────────────────
+// File selection
+// ─────────────────────────────────────────────
+let selectedFiles = [];
+
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const fileListEl = document.getElementById('file-list');
+const processBtn = document.getElementById('process-btn');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  addFiles([...e.dataTransfer.files].filter(f => f.type === 'application/pdf'));
+});
+fileInput.addEventListener('change', () => {
+  addFiles([...fileInput.files]);
+  fileInput.value = '';
+});
+
+function addFiles(files) {
+  files.forEach(f => {
+    if (!selectedFiles.find(x => x.name === f.name)) selectedFiles.push(f);
+  });
+  renderFileChips();
+}
+
+function removeFile(name) {
+  selectedFiles = selectedFiles.filter(f => f.name !== name);
+  renderFileChips();
+}
+
+function renderFileChips() {
+  fileListEl.innerHTML = selectedFiles.map(f =>
+    `<div class="file-chip">
+       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+         <polyline points="14 2 14 8 20 8"/>
+       </svg>
+       ${escHtml(f.name)}
+       <button onclick="removeFile('${escHtml(f.name)}')" title="Remove">×</button>
+     </div>`
+  ).join('');
+  processBtn.disabled = selectedFiles.length === 0;
+}
+
+// ─────────────────────────────────────────────
+// Process invoices
+// ─────────────────────────────────────────────
+async function processFiles() {
+  if (!selectedFiles.length) return;
+
+  processBtn.disabled = true;
+  const container = document.getElementById('runs-container');
+
+  const formData = new FormData();
+  selectedFiles.forEach(f => formData.append('files', f));
+  selectedFiles = [];
+  renderFileChips();
+
+  // We use fetch with ReadableStream to handle SSE
+  const response = await fetch('/api/upload', { method: 'POST', body: formData });
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  let buffer = '';
+  let currentCard = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // Process complete SSE messages (separated by \n\n)
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop(); // last part may be incomplete
+
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      const eventMatch = part.match(/^event: (.+)/m);
+      const dataMatch  = part.match(/^data: (.+)/m);
+      if (!dataMatch) continue;
+
+      const eventName = eventMatch ? eventMatch[1].trim() : 'message';
+      let data;
+      try { data = JSON.parse(dataMatch[1]); } catch { continue; }
+
+      handleSSEEvent(eventName, data, container, (card) => { currentCard = card; });
+    }
+  }
+
+  processBtn.disabled = false;
+}
+
+function handleSSEEvent(eventName, data, container, setCard) {
+  if (eventName === 'file_start') {
+    const card = createRunCard(data.filename);
+    container.prepend(card);
+    setCard(card);
+    return;
+  }
+  if (eventName === 'file_end') return;
+  if (eventName === 'all_done') return;
+
+  const card = container.firstChild; // most recently added card
+  if (!card) return;
+
+  if (eventName === 'stage') {
+    updateStage(card, data);
+  }
+  if (eventName === 'complete') {
+    finalizeCard(card, data.decision);
+  }
+  if (eventName === 'error') {
+    const body = card.querySelector('.run-card-body');
+    body.innerHTML += `<div style="color:var(--escalate-text);font-size:13px;padding:8px 0;background:var(--escalate-bg);border-radius:8px;padding:12px;margin-top:8px;">Error: ${escHtml(data.message)}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────────
+// Run card DOM helpers
+// ─────────────────────────────────────────────
+function createRunCard(filename) {
+  const card = document.createElement('div');
+  card.className = 'run-card';
+  card.innerHTML = `
+    <div class="run-card-header">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted)">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      <span class="filename">${escHtml(filename)}</span>
+      <span class="spinner"></span>
+    </div>
+    <div class="run-card-body">
+      ${[1,2,3,4].map(n => stageRowHTML(n)).join('')}
+    </div>`;
+  return card;
+}
+
+function stageRowHTML(n) {
+  const labels = ['', 'Extracting data...', 'Checking for anomalies...', 'Matching against PO...', 'Generating decision...'];
+  return `
+    <div class="stage-row" id="stage-${n}" data-n="${n}">
+      <div class="stage-icon" data-icon="${n}">${n}</div>
+      <div class="stage-content">
+        <div class="stage-label" data-label="${n}">${labels[n]}</div>
+        <div class="stage-detail" data-detail="${n}"></div>
+      </div>
+    </div>`;
+}
+
+function updateStage(card, data) {
+  const n = data.stage;
+  const icon = card.querySelector(`[data-icon="${n}"]`);
+  const label = card.querySelector(`[data-label="${n}"]`);
+  const detail = card.querySelector(`[data-detail="${n}"]`);
+  if (!icon) return;
+
+  const statusMap = { running: 'running', done: 'done', warn: 'warn', escalate: 'escalate', skipped: 'skipped' };
+  icon.className = 'stage-icon ' + (statusMap[data.status] || '');
+  const iconSymbols = { running: '<span class="spinner"></span>', done: '✓', warn: '!', escalate: '⚠', skipped: '—' };
+  icon.innerHTML = iconSymbols[data.status] || n;
+
+  label.textContent = data.label || '';
+
+  // Stage 1 — extracted fields
+  if (n === 1 && data.status === 'done' && data.data) {
+    detail.innerHTML = buildExtractedTable(data.data);
+  }
+  // Stage 2/3 — detail text
+  if (data.detail) {
+    detail.innerHTML = `<div class="stage-detail">${escHtml(data.detail)}</div>`;
+  }
+  // Stage 3 — PO match detail
+  if (n === 3 && data.po) {
+    detail.innerHTML = `<span style="color:var(--approve-text);font-weight:600">✓</span> PO-${escHtml(data.po.po_number)} · Rs.${fmt(data.po.approved_amount)} · ${escHtml(data.po.items)}`;
+  }
+  // Stage 4 — decision
+  if (n === 4 && data.status === 'done') {
+    detail.innerHTML = buildDecisionBlock(data);
+  }
+}
+
+function buildExtractedTable(d) {
+  const rows = [
+    ['Invoice #',    d.invoice_number],
+    ['Vendor',       d.vendor_name],
+    ['PO Reference', d.po_reference],
+    ['Date',         d.invoice_date],
+    ['Bank Account', d.bank_account],
+    ['Total',        d.total != null ? 'Rs. ' + fmt(d.total) : null],
+    ['Confidence',   d.confidence],
+    ['Model',        d.model_used],
+  ].filter(([,v]) => v != null);
+
+  let html = `<table class="fields-table">${rows.map(([k,v]) =>
+    `<tr><td>${escHtml(k)}</td><td>${escHtml(String(v))}</td></tr>`).join('')}`;
+
+  if (d.line_items && d.line_items.length) {
+    html += `</table>
+    <table class="line-items-table" style="margin-top:10px">
+      <tr><th>Line Item</th><th style="text-align:right">Amount</th></tr>
+      ${d.line_items.map(i =>
+        `<tr><td>${escHtml(i.description||'')}</td><td style="text-align:right">Rs. ${fmt(i.amount)}</td></tr>`
+      ).join('')}
+    </table>`;
+  } else {
+    html += `</table>`;
+  }
+  return html;
+}
+
+function buildDecisionBlock(data) {
+  return `
+    <div class="decision-badge ${escHtml(data.decision)}">
+      ${ data.decision === 'APPROVE' ? '✓' : data.decision === 'FLAG' ? '⚑' : '⚠' }
+      ${escHtml(data.decision)}
+    </div>
+    ${data.reasoning ? `<div class="reasoning-text">${escHtml(data.reasoning)}</div>` : ''}
+    ${data.model_used ? `<div class="model-tag">Reasoning by ${escHtml(data.model_used)}</div>` : ''}
+  `;
+}
+
+function finalizeCard(card, decision) {
+  const spinner = card.querySelector('.spinner');
+  if (spinner) spinner.remove();
+  const header = card.querySelector('.run-card-header');
+  const decisionColors = { APPROVE: 'var(--approve-text)', FLAG: 'var(--flag-text)', ESCALATE: 'var(--escalate-text)' };
+  const decisionBg = { APPROVE: 'var(--approve-bg)', FLAG: 'var(--flag-bg)', ESCALATE: 'var(--escalate-bg)' };
+  const dot = document.createElement('span');
+  dot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${decisionColors[decision]||'var(--muted)'};box-shadow: 0 0 0 3px ${decisionBg[decision]||'transparent'};flex-shrink:0`;
+  header.appendChild(dot);
+}
+
+// ─────────────────────────────────────────────
+// History dashboard
+// ─────────────────────────────────────────────
+async function loadHistory() {
+  const container = document.getElementById('history-container');
+  container.innerHTML = '<div style="color:var(--muted);padding:20px;text-align:center;">Loading...</div>';
+  try {
+    const res = await fetch('/api/history');
+    const runs = await res.json();
+    renderHistory(runs, container);
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--escalate-text);padding:20px;background:var(--escalate-bg);border-radius:var(--radius);text-align:center;">Failed to load history: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function renderHistory(runs, container) {
+  if (!runs.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>
+        </svg>
+        <p>No invoices processed yet.</p>
+      </div>`;
+    return;
+  }
+
+  const rows = runs.map((run, i) => {
+    const ex = run.extracted || {};
+    const ts = run.started_at ? new Date(run.started_at).toLocaleString() : '—';
+    const detailId = `detail-${i}`;
+    return `
+      <tr class="data-row" onclick="toggleDetail('${detailId}')">
+        <td>${escHtml(run.filename || '—')}</td>
+        <td>${escHtml(ex.vendor_name || '—')}</td>
+        <td style="color:var(--muted)">${escHtml(ex.invoice_number || '—')}</td>
+        <td>${ex.total != null ? 'Rs. ' + fmt(ex.total) : '—'}</td>
+        <td><span class="badge badge-${run.decision}">${escHtml(run.decision)}</span></td>
+        <td style="color:var(--muted);font-size:12px">${ts}</td>
+      </tr>
+      <tr class="detail-row" id="${detailId}">
+        <td colspan="6" class="detail-cell">
+          ${buildDetailCell(run)}
+        </td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>File</th><th>Vendor</th><th>Invoice #</th><th>Total</th><th>Decision</th><th>Processed</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function toggleDetail(id) {
+  const row = document.getElementById(id);
+  if (row) row.classList.toggle('open');
+}
+
+function buildDetailCell(run) {
+  const ex = run.extracted || {};
+  const po = run.po_match || {};
+
+  const fields = [
+    ['Invoice #',    ex.invoice_number],
+    ['Vendor',       ex.vendor_name],
+    ['PO Reference', ex.po_reference],
+    ['Date',         ex.invoice_date],
+    ['Bank Account', ex.bank_account],
+    ['Total',        ex.total != null ? 'Rs. ' + fmt(ex.total) : null],
+    ['Confidence',   ex.confidence],
+    ['Extraction model', ex.model_used],
+  ].filter(([,v]) => v != null);
+
+  const fieldRows = fields.map(([k,v]) =>
+    `<tr><td style="color:var(--muted);padding:4px 8px;font-size:13px;width:140px;border-bottom:1px solid var(--border)">${escHtml(k)}</td>
+         <td style="font-size:13px;padding:4px 8px;font-family:'Geist Mono',monospace;border-bottom:1px solid var(--border)">${escHtml(String(v))}</td></tr>`
+  ).join('');
+
+  const lineItemsHTML = (ex.line_items && ex.line_items.length) ? `
+    <table class="line-items-table" style="margin-top:12px;max-width:100%">
+      <tr><th>Description</th><th style="text-align:right">Amount</th></tr>
+      ${ex.line_items.map(i =>
+        `<tr><td>${escHtml(i.description||'')}</td><td style="text-align:right">Rs. ${fmt(i.amount)}</td></tr>`
+      ).join('')}
+    </table>` : '';
+
+  const poHTML = po.po_number ? `
+    <div class="detail-section">
+      <h4>PO Match</h4>
+      <table style="width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;"><tbody>
+        ${[['PO Number', po.po_number],['Vendor', po.vendor],['Approved', po.approved_amount != null ? 'Rs. '+fmt(po.approved_amount) : null],['Items', po.items]]
+          .filter(([,v])=>v!=null)
+          .map(([k,v])=>`<tr><td style="color:var(--muted);padding:8px 12px;font-size:13px;width:120px;border-bottom:1px solid var(--border)">${escHtml(k)}</td><td style="font-size:13px;padding:8px 12px;border-bottom:1px solid var(--border);font-family:'Geist Mono',monospace">${escHtml(String(v))}</td></tr>`).join('')}
+      </tbody></table>
+    </div>` : '';
+
+  return `
+    <div class="detail-grid">
+      <div>
+        <div class="detail-section">
+          <h4>Extracted Data</h4>
+          <table style="width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;"><tbody>${fieldRows}</tbody></table>
+          ${lineItemsHTML}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:24px">
+        ${poHTML}
+        <div class="detail-section">
+          <h4>Decision</h4>
+          <div class="decision-badge ${escHtml(run.decision)}" style="margin-bottom:12px">
+            ${run.decision === 'APPROVE' ? '✓' : run.decision === 'FLAG' ? '⚑' : '⚠'}
+            ${escHtml(run.decision)}
+          </div>
+          <div class="reasoning-text">${escHtml(run.reasoning || '—')}</div>
+          ${run.reasoning_model ? `<div class="model-tag" style="margin-top:8px">Reasoning by ${escHtml(run.reasoning_model)}</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmt(n) {
+  const num = parseFloat(n);
+  return isNaN(num) ? String(n) : num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+</script>
+</body>
+</html>
